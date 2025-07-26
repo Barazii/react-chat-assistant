@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name ChatAssistantAppStack --template-body file://infrastructure.yaml --capabilities CAPABILITY_IAM --region eu-north-1

@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name ChatAssistantBucketStack --template-body file://s3bucket.yaml --capabilities CAPABILITY_IAM --region eu-north-1

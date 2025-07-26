@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation stack to create S3 bucket for React Chat Assistant
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: react-chat-assistant-bucket
+    Description: S3 bucket name for React app and Lambda code
+
+Resources:
+  # S3 Bucket for React App and Lambda Code
+  KnowledgeBaseBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        IgnorePublicAcls: false
+        BlockPublicPolicy: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+  # S3 Bucket Policy for Public Read Access
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref KnowledgeBaseBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${KnowledgeBaseBucket}/*'
+
+Outputs:
+  BucketName:
+    Description: Name of the S3 bucket
+    Value: !Ref KnowledgeBaseBucket
+  BucketWebsiteUrl:
+    Description: S3 website URL for React app
+    Value: !Sub http://${KnowledgeBaseBucket}.s3-website-${AWS::Region}.amazonaws.com

@@ -1,0 +1,108 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation stack for React Chat Assistant with Bedrock
+
+Parameters:
+  BucketName:
+    Type: String
+    Default: react-chat-assistant-bucket
+    Description: S3 bucket name for Knowledge Base and React app
+  LambdaFunctionName:
+    Type: String
+    Default: ChatAssistantHandler
+    Description: Name of the Lambda function
+  ApiGatewayName:
+    Type: String
+    Default: ChatAssistantAPI
+    Description: Name of the API Gateway
+  AWSRegion:
+    Type: String
+    Default: eu-north-1
+    Description: AWS region for deployment
+
+Resources:
+  # Lambda Function
+  ChatLambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        S3Bucket: !Ref BucketName
+        S3Key: lambda.zip
+      Timeout: 30
+      MemorySize: 256
+
+  # Lambda Execution Role
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: BedrockAndLogs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:*
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - s3:GetObject
+                Resource: "*"
+
+  # API Gateway
+  ChatApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Ref ApiGatewayName
+      Description: API for React Chat Assistant
+
+  ChatResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ChatApiGateway
+      ParentId: !GetAtt ChatApiGateway.RootResourceId
+      PathPart: chat
+
+  ChatMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref ChatApiGateway
+      ResourceId: !Ref ChatResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ChatLambdaFunction.Arn}/invocations
+
+  # Lambda Permission for API Gateway
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ChatLambdaFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${ChatApiGateway}/*/POST/chat
+
+  # API Gateway Deployment
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: ChatMethod
+    Properties:
+      RestApiId: !Ref ChatApiGateway
+      StageName: prod
+
+Outputs:
+  ApiGatewayUrl:
+    Description: URL for the API Gateway
+    Value: !Sub https://${ChatApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/chat
