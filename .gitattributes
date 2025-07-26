@@ -1,0 +1,4 @@
+# YAML files
+*.yaml linguist-language=YAML
+*.yml linguist-language=YAML
+*.yaml linguist-detectable=true
